@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import {
   FilePlus,
   Upload,
@@ -11,6 +12,8 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useEditorStore } from '@/stores/editorStore';
+import { useSyncStore } from '@/stores/syncStore';
+import SyncStatusIndicator from '@/components/SyncStatusIndicator';
 
 export default function Toolbar() {
   const {
@@ -25,6 +28,34 @@ export default function Toolbar() {
     setPlaybackSpeed,
     clearAll,
   } = useEditorStore();
+
+  const { initSyncService, setShowSyncDialog, autoSync, triggerSync } = useSyncStore();
+
+  useEffect(() => {
+    initSyncService();
+  }, [initSyncService]);
+
+  const framesSignature = frames.map((f) => `${f.id}-${f.delay}`).join(',');
+
+  useEffect(() => {
+    if (!autoSync) return;
+    const editorState = useEditorStore.getState();
+    const hasContent = editorState.frames.length > 0;
+    if (!hasContent) return;
+
+    const timer = setTimeout(async () => {
+      const state = useEditorStore.getState();
+      await triggerSync(state);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [
+    frames.length,
+    framesSignature,
+    playbackSpeed,
+    autoSync,
+    triggerSync,
+  ]);
 
   const handlePrevFrame = () => {
     const newIndex = currentFrameIndex > 0 ? currentFrameIndex - 1 : frames.length - 1;
@@ -94,6 +125,14 @@ export default function Toolbar() {
       </div>
 
       <div className="flex items-center gap-4">
+        <button
+          onClick={() => setShowSyncDialog(true)}
+          className="p-2 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition-colors"
+          title="云同步设置"
+        >
+          <SyncStatusIndicator />
+        </button>
+
         <div className="flex items-center gap-1">
           <button
             onClick={handlePrevFrame}
